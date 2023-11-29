@@ -1,0 +1,13 @@
+# Next.js-specific ignores
+/.next/
+/out/
+/node_modules/
+
+# OS-specific ignores
+.DS_Store
+
+# Tailwind CSS build output
+tailwind.out.css
+
+# Ignore package-lock.json if you're using yarn
+package-lock.json
