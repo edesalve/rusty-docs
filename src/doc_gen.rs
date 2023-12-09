@@ -1,5 +1,5 @@
 use crate::{
-    models::{CodeElement, CodeFile, DocumentedCodeElement, FieldDescription, ItemKind},
+    models::{CodeElement, CodeFile, DocumentedCodeElement, ItemKind},
     openai::generate_documentation,
     parsing::parse_file,
 };
@@ -68,9 +68,7 @@ pub async fn document_file<P: AsRef<std::path::Path>, W: AsRef<std::path::Path> 
     Ok(())
 }
 
-fn documentation_formatter(
-    raw_element: &DocumentedCodeElement,
-) -> (String, Option<Vec<FieldDescription>>) {
+fn documentation_formatter(raw_element: &DocumentedCodeElement) -> (String, Option<Vec<String>>) {
     let documentation = match raw_element.kind.as_str() {
         "fn" => {
             let doc_error_section = if raw_element.error_possible {
@@ -113,22 +111,37 @@ fn documentation_formatter(
             .join("\n"),
     };
 
-    (
-        documentation,
-        raw_element.fields_or_variants_descriptions.clone(),
-    )
+    let fields_or_variants_descriptions = if let Some(fields_or_variants_descriptions) =
+        &raw_element.fields_or_variants_descriptions
+    {
+        let fields_or_variants_descriptions = fields_or_variants_descriptions
+            .iter()
+            .map(|description| {
+                description
+                    .lines()
+                    .map(|line| format!("/// {line}"))
+                    .collect::<Vec<String>>()
+                    .join("\n")
+            })
+            .collect();
+        Some(fields_or_variants_descriptions)
+    } else {
+        None
+    };
+
+    (documentation, fields_or_variants_descriptions)
 }
 
 fn find_start(
     code_elements: &[CodeElement],
     raw_documented_code_element: &DocumentedCodeElement,
-) -> Option<usize> {
+) -> Option<Vec<usize>> {
     if let Some(code_element) = code_elements.iter().find(|code_element| {
         code_element.code_element_id.ident == raw_documented_code_element.ident
             && code_element.code_element_id.kind.to_string() == raw_documented_code_element.kind
             && code_element.code_element_id.location == raw_documented_code_element.location
     }) {
-        return Some(code_element.line_start);
+        return Some(code_element.line_start.clone());
     }
 
     None
@@ -170,7 +183,7 @@ pub fn put_documentation_inside_repository<P: AsRef<std::path::Path>>(
                     .filter(|code_element| code_element.location.contains(&location))
                     .collect();
 
-            for raw_documented_code_element in file_raw_documented_code_elements {
+            for raw_documented_code_element in &file_raw_documented_code_elements {
                 // This operation is performed at each iteration to account for previous cycle modifications.
                 let code_elements = parse_file(path)?.elements;
                 let mut code_lines = read_file_to_document_lines(path)?;
@@ -178,7 +191,17 @@ pub fn put_documentation_inside_repository<P: AsRef<std::path::Path>>(
                 if let Some(line_start) = find_start(&code_elements, raw_documented_code_element) {
                     let formatted_documentation =
                         documentation_formatter(raw_documented_code_element);
-                    code_lines.insert(line_start - 1, formatted_documentation.0);
+
+                    if let Some(fields_or_variants_descriptions) = formatted_documentation.1 {
+                        for (index, description) in
+                            fields_or_variants_descriptions.into_iter().enumerate()
+                        {
+                            // line_start[index + 1] + index -1 to take into account previously inserted documentation.
+                            code_lines.insert(line_start[index + 1] + index -1, description);
+                        }
+                    }
+
+                    code_lines.insert(line_start[0] - 1, formatted_documentation.0);
 
                     write_lines_to_file(path, &code_lines)?;
                 }

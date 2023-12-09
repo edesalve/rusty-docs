@@ -30,47 +30,6 @@ where
     }
 }
 
-pub(crate) fn deserialize_tuple_from_list<'de, D>(
-    deserializer: D,
-) -> Result<Option<Vec<(String, String)>>, D::Error>
-where
-    D: serde::de::Deserializer<'de>,
-{
-    struct TupleVisitor;
-
-    impl<'de> serde::de::Visitor<'de> for TupleVisitor {
-        type Value = Option<Vec<(String, String)>>;
-
-        fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-            formatter.write_str("a string or a sequence of field descriptions")
-        }
-
-        fn visit_str<E>(self, _value: &str) -> Result<Self::Value, E>
-        where
-            E: serde::de::Error,
-        {
-            Ok(None)
-        }
-
-        fn visit_seq<S>(self, mut seq: S) -> Result<Self::Value, S::Error>
-        where
-            S: serde::de::SeqAccess<'de>,
-        {
-            let mut descriptions = Vec::new();
-            while let Some(description) = seq.next_element()? {
-                descriptions.push(description);
-            }
-
-            if descriptions.is_empty() {
-                return Ok(None);
-            }
-            Ok(Some(descriptions))
-        }
-    }
-
-    deserializer.deserialize_any(TupleVisitor)
-}
-
 pub(crate) fn get_code_from_nested(
     code: &str,
     nested_item_span: Span,

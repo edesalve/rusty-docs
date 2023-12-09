@@ -22,11 +22,11 @@ pub(crate) const SYSTEM_MSG_DOC_GENERATION: &str =
 	    'general_description': string  // This is a general description of the usage of the code provided by the user. Insert references to other parts of code between backticks ``. If kind == Trait or kind == Mod provide only a single object with the general description of the trait
 	    'panic_possible': string  // True if the code can generate panics, false otherwise
 	    'panic_section': string  // If panic_possible == true then a description of how panics can happen. Insert references to other parts of code between backticks ``
-	    'error_possible': string  // True if kind == Function && the code can return an error, false otherwise
+	    'error_possible': string  // True if kind == Fn && the code can return an error, false otherwise
 	    'error_section': string  // If error_possible == true then a description of all errors possible. Insert references to other parts of code between backticks ``
-	    'example_section': string  // If kind == Function then include code examples using the function provided in the simplest way possible. The example provided should be a working one, therefore doctest must always succed
+	    'example_section': string  // If kind == Fn then include code examples using the function provided in the simplest way possible. The example provided should be a working one, therefore doctest must always succed
 	    'has_fields_or_variants': string  // True if kind == Struct || kind == Enum, false otherwise
-	    'fields_or_variants_descriptions': string  // A list of json objects containing the ident of and a description for each field or variant or an empty list. Insert references to other parts of code between backticks ``
+	    'fields_or_variants_descriptions': string  // A list containing a description for each field or variant or an empty list. Insert references to other parts of code between backticks ``
     }
     
     Wrap your final output with closed and open brackets (a list of json objects).

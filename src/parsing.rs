@@ -5,7 +5,7 @@ use crate::{
 };
 
 use anyhow::Result;
-use syn::{parse_file as syn_parse_file, Item, __private::ToTokens, spanned::Spanned};
+use syn::{parse_file as syn_parse_file, Item, __private::ToTokens, spanned::Spanned, Fields};
 
 //TODO: manage partially qualified
 fn contains_fully_qualified(ident: &str, location: &str, text: &str) -> bool {
@@ -134,7 +134,7 @@ pub(crate) fn retrieve_code_element(
                 let code_element = CodeElement {
                     code_element_id: nested_code_element_id.clone(),
                     code: get_code_from_nested(code, nested_item_span, Some(item.0.span())),
-                    line_start: nested_item_span.start().line,
+                    line_start: vec![nested_item_span.start().line],
                     imports: impl_imports.into_iter().map(|import| import.0).collect(),
                     children: Vec::new(),
                     dependencies: Vec::new(),
@@ -201,7 +201,7 @@ pub(crate) fn retrieve_code_element(
                 let code_element = CodeElement {
                     code_element_id: nested_code_element_id.clone(),
                     code: get_code_from_nested(code, nested_item_span, Some(item.0.span())),
-                    line_start: nested_item_span.start().line,
+                    line_start: vec![nested_item_span.start().line],
                     imports: imports.iter().map(|import| import.0.clone()).collect(),
                     children: Vec::new(),
                     dependencies: Vec::new(),
@@ -217,10 +217,17 @@ pub(crate) fn retrieve_code_element(
         _ => Vec::new(),
     };
 
+    let line_start =
+        if code_element_id.kind == ItemKind::Struct || code_element_id.kind == ItemKind::Enum {
+            structs_or_enums_localizer(&item)
+        } else {
+            vec![item.0.span().start().line]
+        };
+
     let mut code_element = CodeElement {
         code_element_id: code_element_id.clone(),
         code: code.to_string(),
-        line_start: item.0.span().start().line,
+        line_start,
         imports: imports.into_iter().map(|import| import.0).collect(),
         children,
         dependencies: Vec::new(),
@@ -233,13 +240,37 @@ pub(crate) fn retrieve_code_element(
     {
         // Module level documentation needs to be placed at the first line of the module.
         if code_element_id.kind == ItemKind::Mod {
-            code_element.line_start += 1;
+            *code_element
+                .line_start
+                .first_mut()
+                .expect("There is always a line_start here") += 1;
         }
 
         code_elements.push(code_element);
     }
 
     Some(code_element_id)
+}
+
+fn structs_or_enums_localizer(item: &SynItem) -> Vec<usize> {
+    let mut line_start = vec![item.0.span().start().line];
+    match &item.0 {
+        Item::Enum(enum_item) => {
+            for variant in &enum_item.variants {
+                line_start.push(variant.span().start().line);
+            }
+        }
+        Item::Struct(struct_item) => {
+            if let Fields::Named(fields) = &struct_item.fields {
+                for field in &fields.named {
+                    line_start.push(field.span().start().line);
+                }
+            }
+        }
+        _ => (),
+    }
+
+    line_start
 }
 
 pub fn parse_repository<P: AsRef<std::path::Path>>(
@@ -315,7 +346,7 @@ pub fn parse_file<P: AsRef<std::path::Path>>(file_path: P) -> Result<CodeFile<P>
                     code_elements.push(CodeElement {
                         code_element_id: CodeElementID::new(ident, ItemKind::Mod, location),
                         code,
-                        line_start: 1,
+                        line_start: vec![1],
                         imports: imports.into_iter().map(|import| import.0).collect(),
                         children,
                         dependencies: Vec::new(),

@@ -1,4 +1,4 @@
-use crate::utils::{deserialize_bool_from_str, deserialize_tuple_from_list, get_type_ident};
+use crate::utils::{deserialize_bool_from_str, get_type_ident};
 use serde::{Deserialize, Serialize};
 use std::{
     collections::hash_map::DefaultHasher,
@@ -6,15 +6,12 @@ use std::{
 };
 use syn::Item;
 
-// Ident - Description
-pub type FieldDescription = (String, String);
-
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct CodeElement {
     pub code_element_id: CodeElementID,
     pub code: String,
     #[serde(skip)]
-    pub line_start: usize,
+    pub line_start: Vec<usize>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
     pub imports: Vec<String>,
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -69,8 +66,7 @@ pub struct DocumentedCodeElement {
     pub example_section: String,
     #[serde(deserialize_with = "deserialize_bool_from_str")]
     pub has_fields_or_variants: bool,
-    #[serde(deserialize_with = "deserialize_tuple_from_list")]
-    pub fields_or_variants_descriptions: Option<Vec<FieldDescription>>,
+    pub fields_or_variants_descriptions: Option<Vec<String>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
